@@ -134,6 +134,21 @@ def test_drop_column():
     ret = Migrate.ddl.drop_column(Category, "name")
     if isinstance(Migrate.ddl, MysqlDDL):
         assert ret == "ALTER TABLE `category` DROP COLUMN `name`"
+    elif isinstance(Migrate.ddl, SqliteDDL):
+        assert (
+            ret
+            == """PRAGMA foreign_keys=off;
+        ALTER TABLE "category" RENAME TO "_category_old";
+        CREATE TABLE IF NOT EXISTS "category" (
+    "id" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    "slug" VARCHAR(200) NOT NULL,
+    "created_at" TIMESTAMP NOT NULL  DEFAULT CURRENT_TIMESTAMP,
+    "user_id" INT NOT NULL REFERENCES "user" ("id") ON DELETE CASCADE /* User */
+);
+        INSERT INTO category (created_at, id, slug, user_id) SELECT created_at, id, slug, user_id FROM _category_old;
+        DROP TABLE _category_old;
+        PRAGMA foreign_keys=on;"""
+        )
     else:
         assert ret == 'ALTER TABLE "category" DROP COLUMN "name"'
 
